@@ -1,0 +1,57 @@
+import http from "k6/http";
+import { sleep } from "k6";
+
+let accessToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik9FWTJSVGM1UlVOR05qSXhSRUV5TURJNFFUWXdNekZETWtReU1EQXdSVUV4UVVRM05EazFNQSJ9.eyJodHRwczovL2hhc3VyYS5pby9qd3QvY2xhaW1zIjp7IngtaGFzdXJhLWRlZmF1bHQtcm9sZSI6InVzZXIiLCJ4LWhhc3VyYS1hbGxvd2VkLXJvbGVzIjpbInVzZXIiXSwieC1oYXN1cmEtdXNlci1pZCI6ImF1dGgwfDY0MjViYjQ4OGE0YzM5ZTAzNTQwNDRmNiJ9LCJuaWNrbmFtZSI6InNpZ2lkLnByYXNldHlvIiwibmFtZSI6InNpZ2lkLnByYXNldHlvQGV2ZXJtb3MuY29tIiwicGljdHVyZSI6Imh0dHBzOi8vcy5ncmF2YXRhci5jb20vYXZhdGFyL2IxMTA4ZjA4YTU0YTBhZDg1MjNkZDkyMTJkNWU1M2UzP3M9NDgwJnI9cGcmZD1odHRwcyUzQSUyRiUyRmNkbi5hdXRoMC5jb20lMkZhdmF0YXJzJTJGc2kucG5nIiwidXBkYXRlZF9hdCI6IjIwMjMtMDMtMzBUMTY6Mzk6MzcuMTEzWiIsImlzcyI6Imh0dHBzOi8vZ3JhcGhxbC10dXRvcmlhbHMuYXV0aDAuY29tLyIsImF1ZCI6IlAzOHFuRm8xbEZBUUpyemt1bi0td0V6cWxqVk5HY1dXIiwiaWF0IjoxNjgwMjc4NzQyLCJleHAiOjE2ODAzMTQ3NDIsInN1YiI6ImF1dGgwfDY0MjViYjQ4OGE0YzM5ZTAzNTQwNDRmNiIsImF0X2hhc2giOiJuTTYybG9VdlhTQVNiLTVrVzc4LVlRIiwic2lkIjoiZHd6eldPekhmRkNiQTNGWEJqc2lyMnFidHNQaVVyMDYiLCJub25jZSI6IjlkWTR1RTlwVkF1dmNZQW1NM09sM2d1c0d2a2RSeGo3In0.G2xEMRITA02wfdavtaZHxdGAedsmmru4ehs5Ey-VPLTwvdktX-NVT7mN-gE1kE2VOlUfM6_SWaT1sDuFAIS5Hlvn4uG8Vh06vXCOsk4j0u6pwRpG-3X_ZunYeJ69VNdZtzjQJPUGdzXEx0PKFCRzP7KCe-mzYEp_6stUTGt_iGlmMcQTeHzUxPPz92jTzYtui96AHLJd9rQ22GivEUws-HeomuPBublxwDsAO9m8-zA-H8GbtJpJ5ia5kht-9qbEDKOQ0Si0N4CIdsKFqC8QxnzCJKcTjYn_eXvqfioJPmPw4a1Gl1GDXpyjovFakoWWkWRBGe216uBSV8moVW7wEg';
+
+export default function() {
+
+  let query = `
+    query FindFirstIssue {
+      repository(owner:"grafana", name:"k6") {
+        issues(first:1) {
+          edges {
+            node {
+              id
+              number
+              title
+            }
+          }
+        }
+      }
+    }`;
+
+  let headers = {
+    'Authorization': `Bearer ${accessToken}`,
+    "Content-Type": "application/json"
+  };
+
+  let res = http.post("https://api.github.com/graphql",
+    JSON.stringify({ query: query }),
+    {headers: headers}
+  );
+
+  if (res.status === 200) {
+    console.log(JSON.stringify(res.body));
+    let body = JSON.parse(res.body);
+    let issue = body.data.repository.issues.edges[0].node;
+    console.log(issue.id, issue.number, issue.title);
+
+    let mutation = `
+      mutation AddReactionToIssue {
+        addReaction(input:{subjectId:"${issue.id}",content:HOORAY}) {
+          reaction {
+            content
+          }
+          subject {
+            id
+          }
+        }
+    }`;
+
+    res = http.post("https://api.github.com/graphql",
+      JSON.stringify({query: mutation}),
+      {headers: headers}
+    );
+  }
+  sleep(0.3);
+}
